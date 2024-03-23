@@ -1,11 +1,10 @@
 {
   "name": "testbot",
-  "main": "src/index.js",
+  "main": "index.js",
   "dependencies": {
-    "@sapphire/framework": "latest",
     "discord.js": "14.x"
   },
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node index.js"
   }
 }
