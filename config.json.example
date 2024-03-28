@@ -1,0 +1,43 @@
+{
+    "token": "TOKEN_ID",
+    "clientId": "CLIENT_ID",
+    "guildId": "GUILD_ID",
+    "assignable_roles": [
+        {
+            "name": "red",
+            "id": "ROLE_ID"
+        },
+        {
+            "name": "orange",
+            "id": "ROLE_ID"
+        },
+        {
+            "name": "yellow",
+            "id": "ROLE_ID"
+        },
+        {
+            "name": "green",
+            "id": "ROLE_ID"
+        },
+        {
+            "name": "blue",
+            "id": "ROLE_ID"
+        },
+        {
+            "name": "purple",
+            "id": "ROLE_ID"
+        },
+        {
+            "name": "grey",
+            "id": "ROLE_ID"
+        },
+        {
+            "name": "vc-ping",
+            "id": "ROLE_ID"
+        },
+        {
+            "name": "free-games-ping",
+            "id": "ROLE_ID"
+        }
+    ]
+}
