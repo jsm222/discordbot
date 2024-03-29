@@ -18,7 +18,7 @@
         },
         {
             "name": "yellow",
-            "description": "sets your nicknae color to yellow",
+            "description": "sets your nickname color to yellow",
             "group": "color",
             "id": "ROLE_ID"
         },
