@@ -15,15 +15,19 @@ module.exports = {
     )
     .setDMPermission(false),
 
+  // this code runs each time a user is typing out a command that starts with /role
   async autocomplete(interaction) {
+    // grab the user's typed string so far
     const focusedValue = interaction.options.getFocused();
+    // get the possible options
     const choices = assignable_roles.map((role) => role.name);
+    // make an array of relevant suggestions
     const filtered = choices.filter(choice => choice.startsWith(focusedValue));
-    await interaction.respond(
-      filtered.map(choice => ({ name: choice, value: choice })),
-    );
+    // give the suggestions to the user
+    await interaction.respond(filtered.map(choice => ({ name: choice, value: choice })));
   },
 
+  // this code runs when a user submits a completed /role command
   async execute(interaction) {
     // set error text in case of an issue
     let responseText = "Unknown or invalid role.";

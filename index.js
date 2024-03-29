@@ -4,12 +4,13 @@ const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
 const { token } = require('./config.json');
 const { Application } = require('discord.js');
 
+// create a new Discord client
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+// scan for command files
 client.commands = new Collection();
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
-
 for (const folder of commandFolders) {
 	const commandsPath = path.join(foldersPath, folder);
 	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -24,18 +25,20 @@ for (const folder of commandFolders) {
 	}
 }
 
+// log the sign in to stdout upon load
 client.once(Events.ClientReady, readyClient => {
 	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
 });
 
+// respond to an interaction
 client.on(Events.InteractionCreate, async interaction => {
 	// do not respond to any event that is not a command or autocomplete
 	if (!(interaction.isChatInputCommand() || interaction.isAutocomplete())) return;
 
-	// grab the commmand being called
+	// grab the command being called
 	const command = interaction.client.commands.get(interaction.commandName);
 
-	// if the command does not exist, show an error
+	// if the command does not exist, log as an error to stdout
 	if (!command) {
 		console.error(`No command matching ${interaction.commandName} was found.`);
 		return;
@@ -64,4 +67,5 @@ client.on(Events.InteractionCreate, async interaction => {
 	}
 });
 
+// log into Discord
 client.login(token);
