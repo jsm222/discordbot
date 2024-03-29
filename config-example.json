@@ -3,6 +3,7 @@
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
     "guildId": "GUILD_ID",
+    "commandCachePath" : "./command-cache.json",
     "assignable_roles": [
         {
             "name": "red",

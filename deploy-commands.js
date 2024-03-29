@@ -1,46 +1,95 @@
 const { REST, Routes } = require('discord.js');
-const { clientId, guildId, token } = require('./config.json');
+const { clientId, guildId, token, commandCachePath } = require('./config.json');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const commands = [];
-// Grab all the command folders from the commands directory you created earlier
-const foldersPath = path.join(__dirname, 'commands');
-const commandFolders = fs.readdirSync(foldersPath);
+// Export a single function called main. This will be executed in index.js as part of the bot startup process.
+module.exports = {
+	main: async function () {
+		// helper function for parsing command data from command modules
+		async function parseCommands() {
+			// make container for commands
+			let commands = [];
+			// Grab all the command folders from the commands directory you created earlier
+			const foldersPath = path.join(__dirname, 'commands');
+			const commandFolders = fs.readdirSync(foldersPath);
+			for (const folder of commandFolders) {
+				// Grab all the command files from the commands directory you created earlier
+				const commandsPath = path.join(foldersPath, folder);
+				const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+				// Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
+				for (const file of commandFiles) {
+					const filePath = path.join(commandsPath, file);
+					const command = require(filePath);
+					if ('data' in command && 'execute' in command) {
+						commands.push(command.data.toJSON());
+					} else {
+						console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+					}
+				}
+			}
+			// return parsed command data
+			return commands;
+		}
 
-for (const folder of commandFolders) {
-	// Grab all the command files from the commands directory you created earlier
-	const commandsPath = path.join(foldersPath, folder);
-	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-	// Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
-	for (const file of commandFiles) {
-		const filePath = path.join(commandsPath, file);
-		const command = require(filePath);
-		if ('data' in command && 'execute' in command) {
-			commands.push(command.data.toJSON());
+		// helper function for uploading commands to Discord
+		async function uploadCommands(commands) {
+			// Construct and prepare an instance of the REST module
+			const rest = new REST().setToken(token);
+
+			// and deploy your commands!
+			(async () => {
+				try {
+					console.log(`[INFO] Uploader: Started refreshing ${commands.length} application (/) commands.`);
+
+					// The put method is used to fully refresh all commands in the guild with the current set
+					const data = await rest.put(
+						Routes.applicationGuildCommands(clientId, guildId),
+						{ body: commands },
+					);
+
+					console.log(`[INFO] Uploader: Successfully reloaded ${data.length} application (/) commands.`);
+				} catch (error) {
+					// And of course, make sure you catch and log any errors!
+					console.error(error);
+				}
+			})();
+		}
+
+		// helper function for updating the cache file
+		async function writeCache(cacheData) {
+			fs.writeFile(commandCachePath, JSON.stringify(cacheData, null, 4), function writeJSON(err) {
+				if (err) return console.log(err);
+				console.log('[INFO] Cache: Successfully wrote cache to ' + commandCachePath);
+			});
+		}
+
+		// parse commands
+		let commands = await parseCommands();
+
+		// does the cache exist?
+		if (fs.existsSync(commandCachePath)) {
+			// CASE: cache exists, so check it
+			// load the cache data
+			let oldCommandData = require(commandCachePath);
+			// does the cache need to be updated?
+			if (JSON.stringify(oldCommandData.commands) === JSON.stringify(commands)) {
+				// CASE: cache does not need to be updated
+				console.log("[INFO] Cache: Current slash commands match local cache. Refusing to update.");
+			} else {
+				// CASE: cache does need to be updated
+				console.log("[INFO] Cache: Current slash commands do not match the cache. Updating cache and sending to Discord.");
+				oldCommandData.commands = commands;
+				writeCache(oldCommandData);
+				uploadCommands(commands);
+			}
 		} else {
-			console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+			// CASE: cache does not exist, so create it
+			console.log("[INFO] Cache: Cache file does not exist. Creating it and sending slash commands to Discord.");
+			let commandData = Object();
+			commandData.commands = commands;
+			writeCache(commandData);
+			uploadCommands(commands);
 		}
 	}
 }
-
-// Construct and prepare an instance of the REST module
-const rest = new REST().setToken(token);
-
-// and deploy your commands!
-(async () => {
-	try {
-		console.log(`Started refreshing ${commands.length} application (/) commands.`);
-
-		// The put method is used to fully refresh all commands in the guild with the current set
-		const data = await rest.put(
-			Routes.applicationGuildCommands(clientId, guildId),
-			{ body: commands },
-		);
-
-		console.log(`Successfully reloaded ${data.length} application (/) commands.`);
-	} catch (error) {
-		// And of course, make sure you catch and log any errors!
-		console.error(error);
-	}
-})();

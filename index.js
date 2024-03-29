@@ -3,6 +3,12 @@ const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
 const { token } = require('./config.json');
 const { Application } = require('discord.js');
+const deployCommands = require('./deploy-commands.js');
+
+// redeploy slash commands if they changed since the last run
+deployCommands.main().catch((error) => {
+	console.log("[ERROR] Client: The deploy-commands module failed to run. Error: " + error);
+});
 
 // create a new Discord client
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -20,14 +26,14 @@ for (const folder of commandFolders) {
 		if ('data' in command && 'execute' in command) {
 			client.commands.set(command.data.name, command);
 		} else {
-			console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+			console.log(`[WARNING] Client: The command at ${filePath} is missing a required "data" or "execute" property.`);
 		}
 	}
 }
 
 // log the sign in to stdout upon load
 client.once(Events.ClientReady, readyClient => {
-	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+	console.log(`[INFO] Client: Ready! Logged in as ${readyClient.user.tag}`);
 });
 
 // respond to an interaction
@@ -40,7 +46,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
 	// if the command does not exist, log as an error to stdout
 	if (!command) {
-		console.error(`No command matching ${interaction.commandName} was found.`);
+		console.error(`[ERROR] Client: No command matching ${interaction.commandName} was found.`);
 		return;
 	}
 
