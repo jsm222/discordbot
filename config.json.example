@@ -1,42 +1,61 @@
 {
     "token": "TOKEN_ID",
     "clientId": "CLIENT_ID",
+    "clientSecret": "CLIENT_SECRET",
     "guildId": "GUILD_ID",
     "assignable_roles": [
         {
             "name": "red",
+            "description": "sets your nickname color to red",
+            "group": "color",
             "id": "ROLE_ID"
         },
         {
             "name": "orange",
+            "description": "sets your nickname color to orange",
+            "group": "color",
             "id": "ROLE_ID"
         },
         {
             "name": "yellow",
+            "description": "sets your nicknae color to yellow",
+            "group": "color",
             "id": "ROLE_ID"
         },
         {
             "name": "green",
+            "description": "sets your nickname color to green",
+            "group": "color",
             "id": "ROLE_ID"
         },
         {
             "name": "blue",
+            "description": "sets your nickname color to blue",
+            "group": "color",
             "id": "ROLE_ID"
         },
         {
             "name": "purple",
+            "description": "sets your nickname color to purple",
+            "group": "color",
             "id": "ROLE_ID"
         },
         {
             "name": "grey",
+            "description": "sets your nickname color to grey",
+            "group": "color",
             "id": "ROLE_ID"
         },
         {
             "name": "vc-ping",
+            "description": "mentioned by members who want to talk in voice chat",
+            "group": "vc-ping",
             "id": "ROLE_ID"
         },
         {
             "name": "free-games-ping",
+            "description": "mentioned by members who want to share a free game",
+            "group": "free-games-ping",
             "id": "ROLE_ID"
         }
     ]
