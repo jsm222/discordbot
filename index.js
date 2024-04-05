@@ -31,47 +31,18 @@ for (const folder of commandFolders) {
 	}
 }
 
-// log the sign in to stdout upon load
-client.once(Events.ClientReady, readyClient => {
-	console.log(`[INFO] Client: Ready! Logged in as ${readyClient.user.tag}`);
-});
-
-// respond to an interaction
-client.on(Events.InteractionCreate, async interaction => {
-	// do not respond to any event that is not a command or autocomplete
-	if (!(interaction.isChatInputCommand() || interaction.isAutocomplete())) return;
-
-	// grab the command being called
-	const command = interaction.client.commands.get(interaction.commandName);
-
-	// if the command does not exist, log as an error to stdout
-	if (!command) {
-		console.error(`[ERROR] Client: No command matching ${interaction.commandName} was found.`);
-		return;
-	}
-
-	// is the event an autocomplete or a command?
-	if (interaction.isAutocomplete()) {
-		// CASE: handle autocomplete event
-		try {
-			await command.autocomplete(interaction);
-		} catch (error) {
-			console.error(error);
-		}
+// scan for event files
+const eventsPath = path.join(__dirname, 'events');
+const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+for (const file of eventFiles) {
+	const filePath = path.join(eventsPath, file);
+	const event = require(filePath);
+	if (event.once) {
+		client.once(event.name, (...args) => event.execute(...args));
 	} else {
-		// CASE: handle command event
-		try {
-			await command.execute(interaction);
-		} catch (error) {
-			console.error(error);
-			if (interaction.replied || interaction.deferred) {
-				await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
-			} else {
-				await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-			}
-		}
+		client.on(event.name, (...args) => event.execute(...args));
 	}
-});
+}
 
 // log into Discord
 client.login(token);
