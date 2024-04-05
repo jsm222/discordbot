@@ -1,5 +1,21 @@
-const { SlashCommandBuilder } = require('discord.js');
-const { assignable_roles } = require("../../config.json");
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { assignable_roles, logChannelID } = require("../../config.json");
+
+function roleLogger(interaction, message) {
+  interaction.client.channels.cache.get(logChannelID).send({
+    embeds: [
+      new EmbedBuilder()
+        .setTitle('Role Management')
+        .setAuthor({ name: 'Beastie Bot', iconURL: 'https://cdn.discordapp.com/app-icons/1220378924622544906/11ccacbe9f39548ec287eeaf827bd326.png', url: 'https://github.com/jsm222/discordbot' })
+        .setDescription(message)
+        .addFields(
+          { name: 'Interaction ID', value: interaction.id, inline: true },
+          { name: 'Member ID', value: interaction.member.id, inline: true }
+        )
+        .setTimestamp()
+    ]
+  });
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -29,25 +45,28 @@ module.exports = {
 
   // this code runs when a user submits a completed /role command
   async execute(interaction) {
-    // set error text in case of an issue
-    let responseText = "Unknown or invalid role.";
     // get the role id the user requested
     const askedRoleName = interaction.options.getString('role');
+    // set error text in case of an issue
+    let logText = `${interaction.member} tried to self-assign the \`${askedRoleName}\` role and failed.`;
+    let success = false;
     // is this role allowed to be assigned?
     if (assignable_roles.findIndex((s) => askedRoleName == s.name) >= 0) {
       // CASE: found role in allowed roles list
+      // mark execution as successful
+      success = true;
       // convert the role name to a role id
       const askedRoleID = assignable_roles.find((role) => role.name == askedRoleName).id;
       // does the member already have the role?
       if (interaction.member.roles.cache.some(role => role.id == askedRoleID)) {
         // CASE: the member has the role, so remove it
         interaction.guild.members.cache.get(interaction.member.id).roles.remove(askedRoleID);
-        responseText = `Removed <@&${askedRoleID}> role from ${interaction.member}.`;
+        logText = `Removed <@&${askedRoleID}> role from ${interaction.member}.`;
       }
       else {
         // CASE: the member does not have the role, so add it
         // reset response text
-        responseText = "";
+        logText = "";
         // remove any conflicting roles
         const askedRoleGroup = assignable_roles.find(role => role.name == askedRoleName).group;
         const conflictingRoleIDs = assignable_roles.filter(role => role.group == askedRoleGroup).map(role => role.id);
@@ -55,15 +74,17 @@ module.exports = {
           let conflictingRoleID = conflictingRoleIDs[i];
           if (interaction.member.roles.cache.some(role => role.id == conflictingRoleID)) {
             interaction.guild.members.cache.get(interaction.member.id).roles.remove(conflictingRoleID);
-            responseText += `Removed conflicting <@&${conflictingRoleID}> role from ${interaction.member}.\n`;
+            logText += `Removed conflicting <@&${conflictingRoleID}> role from ${interaction.member}.\n`;
+            await new Promise(resolve => setTimeout(resolve, 100)); // help fix rate limiting issues
           }
         }
         // add requested role
         interaction.guild.members.cache.get(interaction.user.id).roles.add(askedRoleID);
-        responseText += `Added <@&${askedRoleID}> role to ${interaction.member}.`;
+        logText += `Added <@&${askedRoleID}> role to ${interaction.member}.`;
       }
     }
     // inform user on execution status
-    return interaction.reply(responseText);
+    roleLogger(interaction, logText);
+    return success ? interaction.reply("Ok. Your roles were updated.") : interaction.reply("Unknown or invalid role.");
   }
 }
