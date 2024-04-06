@@ -1,5 +1,18 @@
 {
   "name": "beastie-bot",
+  "license": "BSD-3-Clause",
+  "version": "0.0.1",
+  "maintainers": [
+    "Jesper Schmitz Mouridsen",
+    "Cait Himes"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jsm222/discordbot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jsm222/discordbot/issues"
+  },
   "main": "index.js",
   "dependencies": {
     "discord.js": "14.x"
