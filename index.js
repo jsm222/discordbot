@@ -11,7 +11,12 @@ deployCommands.main().catch((error) => {
 });
 
 // create a new Discord client
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+	intents: [
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildMessages
+	]
+});
 
 // scan for command files
 client.commands = new Collection();
