@@ -5,6 +5,13 @@
     "guildId": "GUILD_ID",
     "commandCachePath": "./command-cache.json",
     "logChannelID": "CHANNEL_ID",
+    "postgresql": {
+        "address": "127.0.0.1",
+        "port": "5432",
+        "username": "POSTGRESQL_USERNAME",
+        "password": "POSTGRESQL_PASSWORD",
+        "database_name": "beastiebot"
+    },
     "assignable_roles": [
         {
             "name": "red",
