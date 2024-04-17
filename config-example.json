@@ -12,7 +12,10 @@
         "password": "POSTGRESQL_PASSWORD",
         "database_name": "beastiebot"
     },
-    "loggerTableName": "logger",
+    "logger": {
+        "tableName": "logger",
+        "maxRecords": 10
+    },
     "assignable_roles": [
         {
             "name": "red",

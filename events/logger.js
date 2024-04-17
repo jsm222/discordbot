@@ -17,10 +17,35 @@
 const { Events, time } = require('discord.js');
 const { query } = require('../db.js');
 const { createHash } = require('crypto');
+const { logger } = require('../config.json');
 
-function insertMessage(channelID, userID, messageID, messageHash, timestamp) {
+async function insertMessage(channelID, userID, messageID, messageHash, timestamp) {
     // TODO: implement this
     console.log(`[INFO] Logger: Logging message with following data [${channelID}, ${userID}, ${messageID}, ${messageHash}, ${timestamp}]`);
+    // Ensure the table exists
+    await query(
+        'CREATE TABLE IF NOT EXISTS $1 (CHANNEL_ID TEXT NOT NULL, AUTHOR_ID TEXT NOT NULL, MESSAGE_ID TEXT NOT NULL, MESSAGE_HASH TEXT NOT NULL, TIMESTAMP INTEGER NOT NULL);',
+        [logger.tableName]
+    ).catch((reason) => {
+        console.error(`[ERROR] Logger: Failed to create "${logger.tableName}" table. Error: ${reason}`);
+    });
+    // Write entry into table
+    await query(
+        'INSERT INTO $1 VALUES ($2, $3, $4, $5, $6);',
+        [logger.tableName, channelID, userID, messageID, messageHash, timestamp]
+    ).catch((reason) => {
+        console.error(
+            `[ERROR] Logger: Failed to log message.
+                \tTable data:
+                    \t\tChannel ID:   ${channelID},
+                    \t\tUser ID:      ${userID},
+                    \t\tMessage ID:   ${messageID},
+                    \t\tMessage Hash: ${messageHash},
+                    \t\tTimestamp:    ${timestamp}
+                \tError:
+                    \t\t${reason}`
+        );
+    });
 }
 
 // log all messages
