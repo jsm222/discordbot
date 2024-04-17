@@ -14,12 +14,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-const { Events } = require('discord.js');
+const { Events, time } = require('discord.js');
+const { query } = require('../db.js');
+const { createHash } = require('crypto');
+
+function insertMessage(channelID, userID, messageID, messageHash, timestamp) {
+    // TODO: implement this
+    console.log(`[INFO] Logger: Logging message with following data [${channelID}, ${userID}, ${messageID}, ${messageHash}, ${timestamp}]`);
+}
 
 // log all messages
 module.exports = {
     name: Events.MessageCreate,
     execute(message) {
         console.log(`Message created: ${JSON.stringify(message)}}\n\n\n`);
-    },
+        insertMessage(message.channelId, message.author.id, message.id, createHash('sha512').update(message.content).digest('hex'), message.createdTimestamp);
+    }
 };

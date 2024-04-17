@@ -12,6 +12,7 @@
         "password": "POSTGRESQL_PASSWORD",
         "database_name": "beastiebot"
     },
+    "loggerTableName": "logger",
     "assignable_roles": [
         {
             "name": "red",
