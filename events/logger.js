@@ -14,24 +14,34 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-const { Events, time } = require('discord.js');
+const { Events } = require('discord.js');
 const { query } = require('../db.js');
 const { createHash } = require('crypto');
 const { logger } = require('../config.json');
-const { escapeIdentifier } = require('pg')
+const { escapeIdentifier } = require('pg');
 
 async function insertMessage(channelID, userID, messageID, messageHash, timestamp) {
     // TODO: implement this
     console.log(`[INFO] Logger: Logging message with following data [${channelID}, ${userID}, ${messageID}, ${messageHash}, ${timestamp}]`);
     // Ensure the table exists
     await query(
-        `CREATE TABLE IF NOT EXISTS ${escapeIdentifier(logger.tableName)}(CHANNEL_ID TEXT NOT NULL, AUTHOR_ID TEXT NOT NULL, MESSAGE_ID TEXT NOT NULL, MESSAGE_HASH TEXT NOT NULL, TIMESTAMP INTEGER NOT NULL)`
+        `CREATE TABLE IF NOT EXISTS ${escapeIdentifier(logger.tableName)}(
+            CHANNEL_ID      TEXT    NOT NULL,
+            AUTHOR_ID       TEXT    NOT NULL,
+            MESSAGE_ID      TEXT    NOT NULL,
+            MESSAGE_HASH    TEXT    NOT NULL,
+            TIMESTAMP       BIGINT  NOT NULL
+        );`
     ).catch((reason) => {
         console.error(`[ERROR] Logger: Failed to create "${logger.tableName}" table. Error: ${reason}`);
     });
     // Write entry into table
     await query(
-        `INSERT INTO ${escapeIdentifier(logger.tableName)}(CHANNEL_ID, AUTHOR_ID,MESSAGE_ID, MESSAGE_HASH, TIMESTAMP) VALUES ($1, $2, $3, $4,$5);`,
+        `INSERT INTO ${escapeIdentifier(logger.tableName)} (
+            CHANNEL_ID, AUTHOR_ID, MESSAGE_ID, MESSAGE_HASH, TIMESTAMP
+        ) VALUES (
+            $1, $2, $3, $4, $5
+        );`,
         [channelID, userID, messageID, messageHash, timestamp]
     ).catch((reason) => {
         console.error(
@@ -45,6 +55,25 @@ async function insertMessage(channelID, userID, messageID, messageHash, timestam
                 \tError:
                     \t\t${reason}`
         );
+    });
+    // delete old entries
+    await query(`
+        DELETE
+        FROM ${escapeIdentifier(logger.tableName)}
+        WHERE MESSAGE_ID in (
+            SELECT MESSAGE_ID
+            FROM ${escapeIdentifier(logger.tableName)}
+            WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2
+            ORDER BY TIMESTAMP ASC
+            LIMIT (
+                SELECT COUNT (*)
+                FROM ${escapeIdentifier(logger.tableName)}
+                WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2
+            )-10
+        );`,
+        [channelID, userID]
+    ).catch((reason) => {
+        console.error(`[ERROR] Logger: Failed to clean old entries for user id ${userID} and channel id ${channelID} in ${logger.tableName} table. Error: ${reason}`);
     });
 }
 
