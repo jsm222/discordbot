@@ -21,7 +21,7 @@ const { logger } = require('../config.json');
 const { escapeIdentifier } = require('pg');
 
 async function insertMessage(channelID, userID, messageID, messageHash, timestamp) {
-    console.log(`[INFO] Logger: Logging message with following data [${channelID}, ${userID}, ${messageID}, ${messageHash}, ${timestamp}]`);
+    console.log(`[INFO] Logger: Logging message with following data {"CHANNEL_ID": ${channelID}, "AUTHOR_ID": ${userID}, "MESSAGE_ID": ${messageID}, "MESSAGE_HASH": ${messageHash}, "TIMESTAMP": ${timestamp}}`);
     // Ensure the table exists
     await query(
         `CREATE TABLE IF NOT EXISTS ${escapeIdentifier(logger.tableName)}(
