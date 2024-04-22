@@ -21,7 +21,6 @@ const { logger } = require('../config.json');
 const { escapeIdentifier } = require('pg');
 
 async function insertMessage(channelID, userID, messageID, messageHash, timestamp) {
-    // TODO: implement this
     console.log(`[INFO] Logger: Logging message with following data [${channelID}, ${userID}, ${messageID}, ${messageHash}, ${timestamp}]`);
     // Ensure the table exists
     await query(
@@ -66,10 +65,15 @@ async function insertMessage(channelID, userID, messageID, messageHash, timestam
             WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2
             ORDER BY TIMESTAMP ASC
             LIMIT (
-                SELECT COUNT (*)
-                FROM ${escapeIdentifier(logger.tableName)}
-                WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2
-            )-10
+                GREATEST(
+                    (
+                        SELECT COUNT (*)
+                        FROM ${escapeIdentifier(logger.tableName)}
+                        WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2
+                    )-10,
+                    0
+                )
+            )
         );`,
         [channelID, userID]
     ).catch((reason) => {
