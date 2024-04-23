@@ -30,7 +30,11 @@
         "scanDelaySeconds": 2,
         "deleteDelaySeconds": 5,
         "memberTimeoutMinutes": 1440,
-        "notifiedRoleId": "ROLE_ID"
+        "notifiedRoleId": "ROLE_ID",
+        "protectedRoleIds": [
+            "ROLE_ID",
+            "ROLE_ID"
+        ]
     },
     "assignable_roles": [
         {

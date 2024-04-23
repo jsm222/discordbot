@@ -180,6 +180,10 @@ module.exports = {
         if (message.author.id == message.client.user.id) {
             return;
         }
+        // do not run for protected roles
+        if (message.guild.members.cache.get(message.author.id).roles.cache.some(aRole => antispam.protectedRoleIds.some(pRole => aRole.id == pRole))) {
+            return;
+        }
         // do not run if the database does not exist
         let dbSafe = await query(`SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='${logger.tableName}';`);
         if (dbSafe.rowCount == 0) {
