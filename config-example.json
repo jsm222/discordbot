@@ -27,7 +27,8 @@
             "maxRepeats": 3,
             "maxTimeDifference": 120000
         },
-        "scanDelaySeconds": 3,
+        "scanDelaySeconds": 2,
+        "deleteDelaySeconds": 5,
         "memberTimeoutMinutes": 1440,
         "notifiedRoleId": "ROLE_ID"
     },

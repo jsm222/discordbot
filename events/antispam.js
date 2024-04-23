@@ -20,6 +20,9 @@ const { createHash } = require('crypto');
 const { logChannelID, logger, antispam } = require('../config.json');
 const { escapeIdentifier } = require('pg');
 
+// sleep code comes from https://stackoverflow.com/a/41957152
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
 function spamLogger(messageData, rule) {
     messageData.client.channels.cache.get(logChannelID).send({
         embeds: [
@@ -70,6 +73,7 @@ async function processSameChannelSpam(messageData, messageHash) {
             console.error(`[ERROR] Antispam: Failed to timeout user ${messageData.author.id}. Error: ${error}`);
         });
         // delete their messages with the same hash
+        await delay(antispam.deleteDelaySeconds * 1000);
         let spamMessageList = await query(
             `
                 SELECT MESSAGE_ID
@@ -135,6 +139,7 @@ async function processCrossChannelSpam(messageData, messageHash) {
             console.error(`[ERROR] Antispam: Failed to timeout user ${messageData.author.id}. Error: ${error}`);
         });
         // delete their messages with the same hash
+        await delay(antispam.deleteDelaySeconds * 1000);
         let spamMessageList = await query(
             `
                 SELECT CHANNEL_ID, MESSAGE_ID
@@ -184,7 +189,7 @@ module.exports = {
         // generate message hash
         let messageHash = createHash('sha512').update(message.content).digest('hex');
         // wait a moment for other modules to react
-        await (ms => new Promise(resolve => setTimeout(resolve, ms)))(antispam.scanDelaySeconds * 1000);
+        await delay(antispam.scanDelaySeconds * 1000);
         // check for spam
         if (antispam.sameChannel.enabled) {
             processSameChannelSpam(message, messageHash);
