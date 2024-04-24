@@ -3,8 +3,10 @@
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
     "guildId": "GUILD_ID",
-    "commandCachePath": "./command-cache.json",
     "logChannelID": "CHANNEL_ID",
+    "deployCommands": {
+        "commandCachePath": "./command-cache.json"
+    },
     "postgresql": {
         "address": "127.0.0.1",
         "port": "5432",

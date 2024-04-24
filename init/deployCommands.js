@@ -15,7 +15,7 @@
  */
 
 const { REST, Routes } = require('discord.js');
-const { clientId, guildId, token, commandCachePath } = require('./config.json');
+const { clientId, guildId, token, deployCommands } = require('../config.json');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -27,7 +27,7 @@ module.exports = {
 			// make container for commands
 			let commands = [];
 			// Grab all the command folders from the commands directory you created earlier
-			const foldersPath = path.join(__dirname, 'commands');
+			const foldersPath = path.join(__dirname, '..', 'commands');
 			const commandFolders = fs.readdirSync(foldersPath);
 			for (const folder of commandFolders) {
 				// Grab all the command files from the commands directory you created earlier
@@ -74,9 +74,9 @@ module.exports = {
 
 		// helper function for updating the cache file
 		async function writeCache(cacheData) {
-			fs.writeFile(commandCachePath, JSON.stringify(cacheData, null, 4), function writeJSON(err) {
+			fs.writeFile(deployCommands.commandCachePath, JSON.stringify(cacheData, null, 4), function writeJSON(err) {
 				if (err) return console.log(err);
-				console.log('[INFO] Cache: Successfully wrote cache to ' + commandCachePath);
+				console.log('[INFO] Cache: Successfully wrote cache to ' + deployCommands.commandCachePath);
 			});
 		}
 
@@ -84,10 +84,10 @@ module.exports = {
 		let commands = await parseCommands();
 
 		// does the cache exist?
-		if (fs.existsSync(commandCachePath)) {
+		if (fs.existsSync(deployCommands.commandCachePath)) {
 			// CASE: cache exists, so check it
 			// load the cache data
-			let oldCommandData = require(commandCachePath);
+			let oldCommandData = require(path.join('..', deployCommands.commandCachePath));
 			// does the cache need to be updated?
 			if (JSON.stringify(oldCommandData.commands) === JSON.stringify(commands)) {
 				// CASE: cache does not need to be updated

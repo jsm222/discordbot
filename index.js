@@ -19,12 +19,17 @@ const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
 const { token } = require('./config.json');
 const { Application } = require('discord.js');
-const deployCommands = require('./deploy-commands.js');
 
-// redeploy slash commands if they changed since the last run
-deployCommands.main().catch((error) => {
-	console.log("[ERROR] Client: The deploy-commands module failed to run. Error: " + error);
-});
+// run init files
+const initsPath = path.join(__dirname, 'init');
+const initFiles = fs.readdirSync(initsPath).filter(file => file.endsWith('.js'));
+for (const file of initFiles) {
+	const filePath = path.join(initsPath, file);
+	const initFile = require(filePath);
+	initFile.main().catch((error) => {
+		console.log(`[ERROR] Client: Init module ${filePath} failed to run. Error: ${error}`);
+	});
+}
 
 // create a new Discord client
 const client = new Client({
