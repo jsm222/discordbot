@@ -23,7 +23,7 @@ const { escapeIdentifier } = require('pg');
 // sleep code comes from https://stackoverflow.com/a/41957152
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-function spamLogger(messageData, rule) {
+async function spamLogger(messageData, rule) {
     messageData.client.channels.cache.get(logChannelID).send({
         embeds: [
             new EmbedBuilder()
@@ -43,12 +43,64 @@ function spamLogger(messageData, rule) {
                 .setTimestamp()
         ]
     }).then((message) => {
-        message.reply(`Hey <@&${antispam.notifiedRoleId}>, this needs your attention.`);
+        message.reply(`Hey <@&${antispam.notifications.notifiedRoleId}>, this needs your attention.`);
     });
+}
+
+async function lockUser(userId, table) {
+    // generate the table if it does not exist
+    await query(
+        `
+            CREATE TABLE IF NOT EXISTS ${escapeIdentifier(table)}(
+                USER_ID     TEXT    NOT NULL
+            );
+        `
+    ).catch((reason) => {
+        console.error(`[ERROR] Antispam: Failed to create "${table}" table. Error: ${reason}`);
+    });
+    // add the user to the lock table
+    await query(
+        `INSERT INTO ${escapeIdentifier(table)} (USER_ID) VALUES ($1);`,
+        [userId]
+    ).catch((reason) => {
+        console.error(`[ERROR] Antispam: Failed to add lock for user ${userId}. Error: ${reason}`);
+    });
+}
+
+async function unlockUser(userId, table) {
+    // remove the user from the lock table
+    await query(
+        `
+            DELETE
+            FROM ${escapeIdentifier(table)}
+            WHERE USER_ID=$1;
+        `,
+        [userId]
+    ).catch((reason) => {
+        console.error(`[ERROR] Antispam: Failed to remove lock for user ${userId}. Error: ${reason}`);
+    });
+}
+
+async function isUserLocked(userId, table) {
+    // check if the user has a lock
+    let ret = await query(
+        `
+            SELECT USER_ID
+            FROM ${escapeIdentifier(table)}
+            WHERE USER_ID=$1;
+        `,
+        [userId]
+    ).catch((reason) => {
+        console.error(`[ERROR] Antispam: Failed to get lock status for user ${userId}. Error: ${reason}`);
+        return false;
+    });
+    return ret.rowCount > 0;
 }
 
 // detect same channel spam
 async function processSameChannelSpam(messageData, messageHash) {
+    // lock this user
+    await lockUser(messageData.author.id, antispam.sameChannel.lockTableName);
     // check for channel spam
     let spamCheck = await query(
         `
@@ -101,10 +153,14 @@ async function processSameChannelSpam(messageData, messageHash) {
             }
         }
     }
+    // unlock this user
+    await unlockUser(messageData.author.id, antispam.sameChannel.lockTableName);
 }
 
 // detect cross channel spam
 async function processCrossChannelSpam(messageData, messageHash) {
+    // lock this user
+    await lockUser(messageData.author.id, antispam.crossChannel.lockTableName);
     // check for channel spam
     let spamCheck = await query(
         `
@@ -170,6 +226,8 @@ async function processCrossChannelSpam(messageData, messageHash) {
             }
         }
     }
+    // unlock this user
+    await unlockUser(messageData.author.id, antispam.crossChannel.lockTableName);
 }
 
 // log the sign in to stdout upon load
@@ -189,16 +247,15 @@ module.exports = {
         if (dbSafe.rowCount == 0) {
             return;
         }
-        // message.channelId, message.author.id, message.id, createHash('sha512').update(message.content).digest('hex'), message.createdTimestamp);
-        // generate message hash
-        let messageHash = createHash('sha512').update(message.content).digest('hex');
         // wait a moment for other modules to react
         await delay(antispam.scanDelaySeconds * 1000);
+        // generate message hash
+        let messageHash = createHash('sha512').update(message.content).digest('hex');
         // check for spam
-        if (antispam.sameChannel.enabled) {
+        if (antispam.sameChannel.enabled && !(await isUserLocked(message.author.id, antispam.sameChannel.lockTableName))) {
             processSameChannelSpam(message, messageHash);
         }
-        if (antispam.crossChannel.enabled) {
+        if (antispam.crossChannel.enabled && !(await isUserLocked(message.author.id, antispam.crossChannel.lockTableName))) {
             processCrossChannelSpam(message, messageHash);
         }
     },
