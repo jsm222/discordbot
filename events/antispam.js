@@ -23,7 +23,8 @@ const { escapeIdentifier } = require('pg');
 // sleep code comes from https://stackoverflow.com/a/41957152
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-async function spamLogger(messageData, rule) {
+// log spam into configured channel
+async function spamLogger(messageData) {
     messageData.client.channels.cache.get(logChannelID).send({
         embeds: [
             new EmbedBuilder()
@@ -37,42 +38,41 @@ async function spamLogger(messageData, rule) {
                 .addFields(
                     { name: 'Author Username', value: messageData.author.username, inline: true },
                     { name: 'Author ID', value: messageData.author.id, inline: true },
-                    { name: 'Timestamp', value: String(messageData.createdTimestamp), inline: true },
-                    { name: 'Rule Violated', value: rule, inline: true }
+                    { name: 'Timestamp', value: String(messageData.createdTimestamp), inline: true }
                 )
                 .setTimestamp()
         ]
     }).then((message) => {
-        message.reply(`Hey <@&${antispam.notifications.notifiedRoleId}>, this needs your attention.`);
+        message.reply(`Hey <@&${antispam.notifiedRoleId}>, this needs your attention.`);
     });
 }
 
-async function lockUser(userId, table) {
+async function lockUser(userId) {
     // generate the table if it does not exist
     await query(
         `
-            CREATE TABLE IF NOT EXISTS ${escapeIdentifier(table)}(
+            CREATE TABLE IF NOT EXISTS ${escapeIdentifier(antispam.lockTableName)}(
                 USER_ID     TEXT    NOT NULL
             );
         `
     ).catch((reason) => {
-        console.error(`[ERROR] Antispam: Failed to create "${table}" table. Error: ${reason}`);
+        console.error(`[ERROR] Antispam: Failed to create "${antispam.lockTableName}" table. Error: ${reason}`);
     });
     // add the user to the lock table
     await query(
-        `INSERT INTO ${escapeIdentifier(table)} (USER_ID) VALUES ($1);`,
+        `INSERT INTO ${escapeIdentifier(antispam.lockTableName)} (USER_ID) VALUES ($1);`,
         [userId]
     ).catch((reason) => {
         console.error(`[ERROR] Antispam: Failed to add lock for user ${userId}. Error: ${reason}`);
     });
 }
 
-async function unlockUser(userId, table) {
+async function unlockUser(userId) {
     // remove the user from the lock table
     await query(
         `
             DELETE
-            FROM ${escapeIdentifier(table)}
+            FROM ${escapeIdentifier(antispam.lockTableName)}
             WHERE USER_ID=$1;
         `,
         [userId]
@@ -81,115 +81,61 @@ async function unlockUser(userId, table) {
     });
 }
 
-async function isUserLocked(userId, table) {
+async function isUserLocked(userId) {
     // check if the user has a lock
     let ret = await query(
         `
             SELECT USER_ID
-            FROM ${escapeIdentifier(table)}
+            FROM ${escapeIdentifier(antispam.lockTableName)}
             WHERE USER_ID=$1;
         `,
         [userId]
     ).catch((reason) => {
-        console.error(`[ERROR] Antispam: Failed to get lock status for user ${userId}. Error: ${reason}`);
+        console.error(`[WARN] Antispam: Failed to get lock status for user ${userId}. Error: ${reason}`);
         return false;
     });
     return ret.rowCount > 0;
 }
 
-// detect same channel spam
-async function processSameChannelSpam(messageData, messageHash) {
+// detect spam
+async function processSpam(messageData, messageHash) {
     // lock this user
-    await lockUser(messageData.author.id, antispam.sameChannel.lockTableName);
+    await lockUser(messageData.author.id);
     // check for channel spam
     let spamCheck = await query(
         `
-            SELECT COUNT (*) hits
-            FROM ${escapeIdentifier(logger.tableName)}
-            WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2 AND MESSAGE_HASH=$3 AND TIMESTAMP>=(
-                SELECT TIMESTAMP
-                FROM ${escapeIdentifier(logger.tableName)}
-                WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2 AND MESSAGE_HASH=$3
-                ORDER BY TIMESTAMP DESC
-                LIMIT 1
-            )-${antispam.sameChannel.maxTimeDifference};
-        `,
-        [messageData.channelId, messageData.author.id, messageHash]
-    );
-    if (spamCheck.rowCount > 0 && spamCheck.rows.at(0).hits >= antispam.sameChannel.maxRepeats) {
-        // CASE: found N message repeats by the same user in the same channel in the checked time interval
-        // log moderation event
-        spamLogger(messageData, "Same Channel");
-        // timeout the user
-        messageData.guild.members.cache.get(messageData.author.id).timeout(antispam.memberTimeoutMinutes * 60 * 1000).catch((error) => {
-            console.error(`[ERROR] Antispam: Failed to timeout user ${messageData.author.id}. Error: ${error}`);
-        });
-        // delete their messages with the same hash
-        await delay(antispam.deleteDelaySeconds * 1000);
-        let spamMessageList = await query(
-            `
-                SELECT MESSAGE_ID
-                FROM ${escapeIdentifier(logger.tableName)}
-                WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2 AND MESSAGE_HASH=$3;
-            `,
-            [messageData.channelId, messageData.author.id, messageHash]
-        );
-        if (spamMessageList.rowCount > 0) {
-            for (let i in spamMessageList.rows) {
-                let deleteTargetID = spamMessageList.rows.at(i).message_id;
-                // code to delete messages on the server came from https://www.reddit.com/r/discordbot/comments/hrnu4s/comment/fy6fwb8/
-                messageData.client.channels.cache.get(messageData.channelId).messages.fetch(deleteTargetID).then((m) => m.delete()).catch((error) => {
-                    console.error(`[ERROR] Antispam: Failed to delete message with CHANNEL_ID=${messageData.channelId} and MESSAGE_ID=${deleteTargetID}. Error: ${error}`);
-                });
-                // delete the message from the database (this prevents some potential API errors on future spam detections, specifically the Unknown Message error)
-                query(
-                    `
-                        DELETE
-                        FROM ${escapeIdentifier(logger.tableName)}
-                        WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2 AND MESSAGE_ID=$3;
-                    `,
-                    [messageData.channelId, messageData.author.id, deleteTargetID]
-                );
-            }
-        }
-    }
-    // unlock this user
-    await unlockUser(messageData.author.id, antispam.sameChannel.lockTableName);
-}
-
-// detect cross channel spam
-async function processCrossChannelSpam(messageData, messageHash) {
-    // lock this user
-    await lockUser(messageData.author.id, antispam.crossChannel.lockTableName);
-    // check for channel spam
-    let spamCheck = await query(
-        `
-            SELECT COUNT (*) AS hits
+            SELECT
+            COUNT (*) AS hits
             FROM ${escapeIdentifier(logger.tableName)}
             WHERE
                 AUTHOR_ID=$1
                 AND MESSAGE_HASH=$2
                 AND TIMESTAMP>=(
-                SELECT TIMESTAMP
-                FROM (
-                    SELECT
-                    DISTINCT ON(CHANNEL_ID) *
+                    SELECT TIMESTAMP
                     FROM ${escapeIdentifier(logger.tableName)}
                     WHERE
                         AUTHOR_ID=$1
                         AND MESSAGE_HASH=$2
-                        ORDER BY CHANNEL_ID DESC, TIMESTAMP DESC
-                )
-                ORDER BY TIMESTAMP DESC
-                LIMIT 1
-            )-${antispam.crossChannel.maxTimeDifference};
+                    ORDER BY TIMESTAMP DESC
+                    LIMIT 1
+                )-${antispam.maxMessageTimeDifference};
         `,
         [messageData.author.id, messageHash]
-    );
-    if (spamCheck.rowCount > 0 && spamCheck.rows.at(0).hits >= antispam.crossChannel.maxRepeats) {
+    ).catch((reason) => {
+        console.error(
+            `[ERROR] Antispam: Failed to count number of similar messages.
+                \tTable data:
+                    \t\tUser ID:         ${messageData.author.id}
+                    \t\tMessage Hash:    ${messageHash}
+                    \t\tTimestamp Range: ${messageData.timestamp - antispam.maxMessageTimeDifference} - ${messageData.timestamp}
+                \tError:
+                    \t\t${reason}`
+        );
+    });
+    if (spamCheck.rowCount > 0 && spamCheck.rows.at(0).hits >= antispam.maxMessageRepeats) {
         // CASE: found N message repeats by the same user in the same channel in the checked time interval
         // log moderation event
-        spamLogger(messageData, "Cross Channel");
+        spamLogger(messageData);
         // timeout the user
         messageData.guild.members.cache.get(messageData.author.id).timeout(antispam.memberTimeoutMinutes * 60 * 1000).catch((error) => {
             console.error(`[ERROR] Antispam: Failed to timeout user ${messageData.author.id}. Error: ${error}`);
@@ -205,7 +151,16 @@ async function processCrossChannelSpam(messageData, messageHash) {
                     AND MESSAGE_HASH=$2;
             `,
             [messageData.author.id, messageHash]
-        );
+        ).catch((reason) => {
+            console.error(
+                `[ERROR] Antispam: Failed to get a list of all similar messages for deletion queue.
+                    \tTable data:
+                        \t\tUser ID:      ${messageData.author.id}
+                        \t\tMessage Hash: ${messageHash}
+                    \tError:
+                        \t\t${reason}`
+            );
+        });
         if (spamMessageList.rowCount > 0) {
             for (let i in spamMessageList.rows) {
                 let deleteTargetChannelID = spamMessageList.rows.at(i).channel_id;
@@ -222,12 +177,23 @@ async function processCrossChannelSpam(messageData, messageHash) {
                         WHERE CHANNEL_ID=$1 AND AUTHOR_ID=$2 AND MESSAGE_ID=$3;
                     `,
                     [deleteTargetChannelID, messageData.author.id, deleteTargetMessageID]
-                );
+                ).catch((reason) => {
+                    console.error(
+                        `[ERROR] Antispam: Failed to get a list of all similar messages for deletion queue.
+                            \tTable data:
+                                \t\tChannel ID: ${deleteTargetChannelID}
+                                \t\tUser ID:    ${messageData.author.id}
+                                \t\tMessage ID: ${deleteTargetMessageID}
+                            \tError:
+                                \t\t${reason}`
+                    );
+                    console.error(`[ERROR] Antispam: Failed to delete a message for user ${messageData.author.id} and message hash ${messageHash}. Error: ${reason}`);
+                });
             }
         }
     }
     // unlock this user
-    await unlockUser(messageData.author.id, antispam.crossChannel.lockTableName);
+    await unlockUser(messageData.author.id);
 }
 
 // log the sign in to stdout upon load
@@ -252,11 +218,8 @@ module.exports = {
         // generate message hash
         let messageHash = createHash('sha512').update(message.content).digest('hex');
         // check for spam
-        if (antispam.sameChannel.enabled && !(await isUserLocked(message.author.id, antispam.sameChannel.lockTableName))) {
-            processSameChannelSpam(message, messageHash);
-        }
-        if (antispam.crossChannel.enabled && !(await isUserLocked(message.author.id, antispam.crossChannel.lockTableName))) {
-            processCrossChannelSpam(message, messageHash);
+        if (!(await isUserLocked(message.author.id))) {
+            processSpam(message, messageHash);
         }
     },
 };

@@ -19,26 +19,13 @@
         "maxRecords": 10
     },
     "antispam": {
-        "crossChannel": {
-            "enabled": true,
-            "maxRepeats": 6,
-            "maxTimeDifference": 600000,
-            "lockTableName": "antispam_lock_cross"
-        },
-        "sameChannel": {
-            "enabled": true,
-            "maxRepeats": 3,
-            "maxTimeDifference": 120000,
-            "lockTableName": "antispam_lock_same"
-        },
-        "notifications": {
-            "notifiedRoleId": "ROLE_ID",
-            "tableName": "antispam_notifications",
-            "cooldownTimeSeconds": 30
-        },
+        "lockTableName": "antispam_lock",
+        "maxMessageRepeats": 5,
+        "maxMessageTimeDifference": 600000,
         "scanDelaySeconds": 2,
         "deleteDelaySeconds": 5,
         "memberTimeoutMinutes": 1440,
+        "notifiedRoleId": "ROLE_ID",
         "protectedRoleIds": [
             "ROLE_ID",
             "ROLE_ID"
